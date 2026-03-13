@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+
+  # ── Endee Vector Database ────────────────────────────────────
+  endee:
+    image: endee-io/endee:latest          # Official Endee Docker image
+    container_name: endee
+    ports:
+      - "8080:8080"
+    volumes:
+      - endee_data:/data                  # Persist index data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── RAG Q&A API ──────────────────────────────────────────────
+  rag-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-api
+    ports:
+      - "8000:8000"
+    environment:
+      ENDEE_HOST: endee
+      ENDEE_PORT: 8080
+      ENDEE_API_KEY: ${ENDEE_API_KEY:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-all-MiniLM-L6-v2}
+      USE_MOCK_EMBEDDER: ${USE_MOCK_EMBEDDER:-false}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-3.5-turbo}
+    depends_on:
+      endee:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  endee_data:
